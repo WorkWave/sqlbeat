@@ -4,10 +4,10 @@ Fork of [sqlbeat](https://github.com/adibendahan/sqlbeat) for pulling SQL query 
 `sqlbeat` is a fully customizable Elastic Beat for MySQL/Microsoft SQL Server/PostgreSQL servers - this beat can ship the results of any query defined in the config file to Elasticsearch.
 
 ## Current status
+
 Sqlbeat still in beta.
 
-
-#### To Do:
+## To Do
 
 * Update to more recent `libbeat` (the current bound version is 5.0.0-snapshot)
 * Add SSPI support for MSSQL
@@ -56,7 +56,6 @@ is a to-do (above) to update `sqlbeat` to a more recent version of `libbeat`.
 * Install [Golang](https://golang.org/dl/)
 * Install [Glide](https://github.com/Masterminds/glide)
 * Install [gnumake](https://stackoverflow.com/questions/32127524/how-to-install-and-use-make-in-windows-8-1) (if not on a unix box)
-gn
 
 ## Building
 
@@ -78,15 +77,24 @@ make
 If you see syntax errors from the build, be sure that you have the proper version
 of the dependencies -- make sure that `glide update` completes successfully.
 
-## Creating a distribution
+## Creating a Distribution
+
+As with other elastic beats, `sqlbeat` is distributed as a zip file that
+includes the executable, sample configuration files and a couple of powershell
+scripts to help install the executable as a service under windows.
+
+The `makefile` `dist` target uses `golang` `gox` cross-compiler to build the windows executable,
+bundles it with the other files and zips it up.  The `makefile` includes a
+
 
 # Deploying and Running
 
-WorkWave sonar is deployed via `chef` and provides its own configuration files.
+WorkWave deploys this beat as part of `sonar`.
+The configuration files in this project are for testing purposes only.
 
 ## Configuration
 
-Edit mysqlbeat configuration in ```sqlbeat.yml``` .
+Edit sqlbeat configuration in ```sqlbeat.yml``` .
 
 You can:
  * Choose DB Type
@@ -107,4 +115,7 @@ Notes on password encryption: Before you compile your own mysqlbeat, you should 
 Just run ```sqlbeat -c sqlbeat.yml``` and you are good to go.
 
 # License
-GNU General Public License v2
+
+The license for the forked repository was an Apache v2 license as of the time
+of the fork (August 5, 2017).  The LICENSE is included in this repository for
+reference.
