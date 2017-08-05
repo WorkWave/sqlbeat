@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/adibendahan/sqlbeat/config"
+	"github.com/workwave/sqlbeat/config"
 	"github.com/elastic/beats/libbeat/beat"
 	"github.com/elastic/beats/libbeat/cfgfile"
 	"github.com/elastic/beats/libbeat/common"
@@ -53,7 +53,7 @@ const (
 	// you should compile your sqlbeat with a unique secret and hide it (don't leave it in the code after compiled)
 	// you can encrypt your password with github.com/adibendahan/sqlbeat-password-encrypter just update your secret
 	// (and commonIV if you choose to change it) and compile.
-	secret = "github.com/adibendahan/mysqlbeat"
+	secret = "thisisnotaverygoodsecret"
 
 	// supported DB types
 	dbtMySQL = "mysql"

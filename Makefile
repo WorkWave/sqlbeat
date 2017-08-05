@@ -1,5 +1,5 @@
 BEATNAME=sqlbeat
-BEAT_DIR=github.com/adibendahan
+BEAT_DIR=github.com/workwave
 SYSTEM_TESTS=false
 TEST_ENVIRONMENT=false
 ES_BEATS=./vendor/github.com/elastic/beats
