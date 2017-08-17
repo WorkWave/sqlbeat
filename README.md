@@ -114,6 +114,12 @@ Notes on password encryption: Before you compile your own mysqlbeat, you should 
 
 Just run ```sqlbeat -c sqlbeat.yml``` and you are good to go.
 
+To enable debugging to console:
+
+```
+sqlbeat -c sqlbeat.yml -e -d "*"
+```
+
 # License
 
 The license for the forked repository was an Apache v2 license as of the time
