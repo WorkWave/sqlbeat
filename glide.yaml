@@ -3,7 +3,7 @@ import:
 - package: github.com/elastic/beats
   # This guid  refs a 5.0.0_SNAPSHOT -- let's use a semantic version instead
   #version: d8ca37efa8888ce624e2cfaa90107e79fd41be1e
-  version: ~5.5.2
+  version: v7.12
   subpackages:
   - libbeat/beat
   - libbeat/cfgfile

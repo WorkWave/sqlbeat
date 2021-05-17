@@ -11,14 +11,12 @@ import (
 	"strings"
 	"time"
 
-	// "github.com/workwave/sqlbeat/config"
-	"github.com/elastic/beats/libbeat/beat"
-	// "github.com/elastic/beats/libbeat/cfgfile"
-	"github.com/elastic/beats/libbeat/common"
-	"github.com/elastic/beats/libbeat/logp"
-	"github.com/elastic/beats/libbeat/publisher"
+	"github.com/workwave/sqlbeat/config"
 
-	"github.com/adibendahan/sqlbeat/config"
+	"github.com/elastic/beats/v7/libbeat/beat"
+	"github.com/elastic/beats/v7/libbeat/common"
+	"github.com/elastic/beats/v7/libbeat/logp"
+	// "github.com/elastic/beats/v7/libbeat/publisher"
 
 	// sql go drivers
 	_ "github.com/denisenkom/go-mssqldb"
@@ -29,11 +27,11 @@ import (
 // Sqlbeat is a struct to hold the beat config & info
 type Sqlbeat struct {
 	done            chan struct{}
-	config      		config.Config
-	client 					publisher.Client
+	config      	config.Config
+	client 			beat.Client
 
-	oldValues    common.MapStr
-	oldValuesAge common.MapStr
+	oldValues    	common.MapStr
+	oldValuesAge 	common.MapStr
 }
 
 var (
@@ -93,20 +91,6 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 
 	return bt, nil
 }
-
-///*** Beater interface methods ***///
-
-// Config is a function to read config file
-// func (bt *Sqlbeat) Config(b *beat.Beat) error {
-
-// 	// Load beater beatConfig
-// 	err := cfgfile.Read(&bt.config, "")
-// 	if err != nil {
-// 		return fmt.Errorf("Error reading config file: %v", err)
-// 	}
-
-// 	return nil
-// }
 
 // Setup is a function to validate
 func (bt *Sqlbeat) Setup(b *beat.Beat) error {
@@ -189,7 +173,12 @@ func (bt *Sqlbeat) Setup(b *beat.Beat) error {
 func (bt *Sqlbeat) Run(b *beat.Beat) error {
 	logp.Info("sqlbeat is running! Hit CTRL-C to stop it.")
 
-	bt.client = b.Publisher.Connect()
+	var err error
+	bt.client, err = b.Publisher.Connect()
+	if err != nil {
+		return err
+	}
+
 	logp.Info("Connected; ticker period is %v", bt.config.Period)
 	ticker := time.NewTicker(bt.config.Period)
 	for {
@@ -212,6 +201,7 @@ func (bt *Sqlbeat) Stop() {
 	bt.client.Close()
 	close(bt.done)
 }
+
 
 ///*** sqlbeat methods ***///
 
@@ -261,7 +251,7 @@ LoopQueries:
 		// Populate the two-columns event
 		if bt.config.QueryTypes[index] == queryTypeTwoColumns {
 			twoColumnEvent = common.MapStr{
-				"@timestamp": common.Time(dtNow),
+				// "@timestamp": common.Time(dtNow),
 				"type":       bt.config.DBType,
 			}
 		}
@@ -272,13 +262,18 @@ LoopQueries:
 			switch bt.config.QueryTypes[index] {
 			case queryTypeSingleRow, queryTypeSlaveDelay:
 				// Generate an event from the current row
-				event, err := bt.generateEventFromRow(rows, columns, bt.config.QueryTypes[index], dtNow)
+				sqlevent, err := bt.generateEventFromRow(rows, columns, bt.config.QueryTypes[index], dtNow)
 
 				if err != nil {
 					logp.Err("Query #%v error generating event from rows: %v", index, err)
-				} else if event != nil {
+				} else if sqlevent != nil {
+					event := beat.Event{
+						Timestamp: time.Now(),
+						Fields:    sqlevent,
+					}
+
 					// b.Events.PublishEvent(event)
-					bt.client.PublishEvent(event)
+					bt.client.Publish(event)
 					logp.Info("%v event sent", bt.config.QueryTypes[index])
 				}
 				// breaking after the first row
@@ -286,14 +281,19 @@ LoopQueries:
 
 			case queryTypeMultipleRows:
 				// Generate an event from the current row
-				event, err := bt.generateEventFromRow(rows, columns, bt.config.QueryTypes[index], dtNow)
+				sqlevent, err := bt.generateEventFromRow(rows, columns, bt.config.QueryTypes[index], dtNow)
 
 				if err != nil {
 					logp.Err("Query #%v error generating event from rows: %v", index, err)
 					break LoopRows
-				} else if event != nil {
+				} else if sqlevent != nil {
+					event := beat.Event{
+						Timestamp: time.Now(),
+						Fields:    sqlevent,
+					}
+
 					// b.Events.PublishEvent(event)
-					bt.client.PublishEvent(event)
+					bt.client.Publish(event)
 					logp.Info("%v event sent", bt.config.QueryTypes[index])
 				}
 
@@ -316,7 +316,12 @@ LoopQueries:
 
 		// If the two-columns event has data, publish it
 		if bt.config.QueryTypes[index] == queryTypeTwoColumns && len(twoColumnEvent) > 2 {
-			bt.client.PublishEvent(twoColumnEvent)
+			pubevent := beat.Event{
+				Timestamp: time.Now(),
+				Fields:    twoColumnEvent,
+			}
+
+			bt.client.Publish(pubevent)
 			logp.Info("%v event sent", queryTypeTwoColumns)
 			twoColumnEvent = nil
 		}
@@ -463,9 +468,13 @@ func (bt *Sqlbeat) generateEventFromRow(row *sql.Rows, columns []string, queryTy
 
 	// Create the event and populate it
 	event := common.MapStr{
-		"@timestamp": common.Time(rowAge),
+		// "@timestamp": common.Time(rowAge),
 		"type":       bt.config.DBType,
 	}
+
+	// event := beat.Event{
+	// 	Timestamp: time.Now(),
+	// }
 
 	// Get RawBytes from data
 	err := row.Scan(scanArgs...)
@@ -477,7 +486,7 @@ func (bt *Sqlbeat) generateEventFromRow(row *sql.Rows, columns []string, queryTy
 	for i, col := range values {
 		// Get column name and string value
 		strColName := string(columns[i])
-		strColValue := string(col)
+		strColValue := strings.TrimSpace(string(col))
 		strColType := columnTypeString
 
 		// Skip column proccessing when query type is show-slave-delay and the column isn't Seconds_Behind_Master
@@ -511,6 +520,7 @@ func (bt *Sqlbeat) generateEventFromRow(row *sql.Rows, columns []string, queryTy
 				bt.oldValuesAge[strColName] = rowAge
 
 				if strColType == columnTypeString {
+					// colValue := strings.TrimSpace(strColValue)
 					bt.oldValues[strColName] = strColValue
 				} else if strColType == columnTypeInt {
 					bt.oldValues[strColName] = nColValue

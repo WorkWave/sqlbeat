@@ -3,14 +3,16 @@ package main
 import (
 	"os"
 
-	"github.com/elastic/beats/libbeat/beat"
+	"github.com/elastic/beats/v7/libbeat/cmd"
+	"github.com/elastic/beats/v7/libbeat/cmd/instance"
 
 	"github.com/workwave/sqlbeat/beater"
 )
 
+var RootCmd = cmd.GenRootCmdWithSettings(beater.New, instance.Settings{Name: "sqlbeat"})
+
 func main() {
-	err := beat.Run("sqlbeat", "", beater.New)
-	if err != nil {
+	if err := RootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
 }
