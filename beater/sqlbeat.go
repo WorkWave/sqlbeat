@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -16,7 +17,6 @@ import (
 	"github.com/elastic/beats/v7/libbeat/beat"
 	"github.com/elastic/beats/v7/libbeat/common"
 	"github.com/elastic/beats/v7/libbeat/logp"
-	// "github.com/elastic/beats/v7/libbeat/publisher"
 
 	// sql go drivers
 	_ "github.com/denisenkom/go-mssqldb"
@@ -26,12 +26,12 @@ import (
 
 // Sqlbeat is a struct to hold the beat config & info
 type Sqlbeat struct {
-	done            chan struct{}
-	config      	config.Config
-	client 			beat.Client
+	done   chan struct{}
+	config config.Config
+	client beat.Client
 
-	oldValues    	common.MapStr
-	oldValuesAge 	common.MapStr
+	oldValues    common.MapStr
+	oldValuesAge common.MapStr
 }
 
 var (
@@ -43,16 +43,16 @@ const (
 	// you should compile your sqlbeat with a unique secret and hide it (don't leave it in the code after compiled)
 	// you can encrypt your password with github.com/adibendahan/sqlbeat-password-encrypter just update your secret
 	// (and commonIV if you choose to change it) and compile.
-	secret = "thisisnotaverygoodsecret"
+	secret = "replaceme"
 
 	// supported DB types
 	dbtMySQL = "mysql"
 	dbtMSSQL = "mssql"
 	dbtPSQL  = "postgres"
 
-	defaultPortMySQL     = "3306"
-	defaultPortMSSQL     = "1433"
-	defaultPortPSQL      = "5432"
+	defaultPortMySQL = "3306"
+	defaultPortMSSQL = "1433"
+	defaultPortPSQL  = "5432"
 
 	// query types values
 	queryTypeSingleRow    = "single-row"
@@ -77,16 +77,15 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 	if err := cfg.Unpack(&config); err != nil {
 		return nil, fmt.Errorf("Error reading config file: %v", err)
 	}
-	
-	
+
 	logp.Info("  Config = \n%+v\n", config)
 	bt := &Sqlbeat{
-		done: make(chan struct{}),
+		done:   make(chan struct{}),
 		config: config,
 	}
 
 	if err := bt.Setup(b); err != nil {
-		return nil, fmt.Errorf("Error validating config file: %v", err)		
+		return nil, fmt.Errorf("Error validating config file: %v", err)
 	}
 
 	return bt, nil
@@ -137,12 +136,11 @@ func (bt *Sqlbeat) Setup(b *beat.Beat) error {
 		logp.Info("Port not selected, proceeding with '%v' as default", bt.config.Port)
 	}
 
-
 	// Handle password decryption and save in the bt
 	// if bt.config.Password != "" {
 	// 	bt.password = bt.config.Password
-	// } else 
-	 if bt.config.EncryptedPassword != "" {
+	// } else
+	if bt.config.EncryptedPassword != "" {
 		aesCipher, err := aes.NewCipher([]byte(secret))
 		if err != nil {
 			return err
@@ -195,13 +193,11 @@ func (bt *Sqlbeat) Run(b *beat.Beat) error {
 	}
 }
 
-
 // Stop is a function that runs once the beat is stopped
 func (bt *Sqlbeat) Stop() {
 	bt.client.Close()
 	close(bt.done)
 }
-
 
 ///*** sqlbeat methods ***///
 
@@ -252,7 +248,7 @@ LoopQueries:
 		if bt.config.QueryTypes[index] == queryTypeTwoColumns {
 			twoColumnEvent = common.MapStr{
 				// "@timestamp": common.Time(dtNow),
-				"type":       bt.config.DBType,
+				"type": bt.config.DBType,
 			}
 		}
 
@@ -469,7 +465,7 @@ func (bt *Sqlbeat) generateEventFromRow(row *sql.Rows, columns []string, queryTy
 	// Create the event and populate it
 	event := common.MapStr{
 		// "@timestamp": common.Time(rowAge),
-		"type":       bt.config.DBType,
+		"type": bt.config.DBType,
 	}
 
 	// event := beat.Event{
@@ -488,6 +484,13 @@ func (bt *Sqlbeat) generateEventFromRow(row *sql.Rows, columns []string, queryTy
 		strColName := string(columns[i])
 		strColValue := strings.TrimSpace(string(col))
 		strColType := columnTypeString
+
+		// Remove commas from integers
+		re := regexp.MustCompile(`^[\d,]+$`)
+		match := re.FindStringSubmatch(strColValue)
+		if match != nil {
+			strColValue = strings.ReplaceAll(strColValue, ",", "")
+		}
 
 		// Skip column proccessing when query type is show-slave-delay and the column isn't Seconds_Behind_Master
 		if queryType == queryTypeSlaveDelay && strColName != columnNameSlaveDelay {

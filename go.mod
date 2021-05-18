@@ -4,7 +4,6 @@ go 1.15
 
 require (
 	github.com/denisenkom/go-mssqldb v0.0.0-20200206145737-bbfc9a55622e
-	github.com/elastic/beats v7.6.2+incompatible // indirect
 	github.com/elastic/beats/v7 v7.12.1
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/lib/pq v1.1.2-0.20190507191818-2ff3cb3adc01
